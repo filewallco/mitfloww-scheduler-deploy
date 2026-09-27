@@ -361,3 +361,75 @@ Follow this phased deployment sequence:
 - **R2 Unreachable**: If Cloudflare R2 is temporarily unavailable or returns rate limits, the operation catches the error, retries with exponential backoff up to `DEFAULT_MAX_RETRIES`, logs the failure, and gracefully skips to the next item. On the next scheduled run, the item is safely picked up again.
 - **Database Connection Lost**: The database connection pool automatically reconnects. If a query fails, the current job records a failure and releases its advisory lock. The health probe transitions to `unhealthy` (HTTP 503) so orchestrators can restart or route alerts.
 - **Process Crash / Container Restart**: Session-scoped PostgreSQL advisory locks are automatically freed by PostgreSQL upon connection disconnect. No stuck or orphaned locks remain. Cleanup restarts from the last committed database state cleanly.
+
+---
+
+## 5. Scheduler Operations & Admin Console (Internal Ops UI)
+
+The scheduler includes an **internal, standalone operations console** and REST API served directly on the scheduler's HTTP server (port `4002`).
+
+> **Note**: This is an internal operations tool for administrators and operators. It is completely standalone inside the scheduler service and is **not** part of the customer-facing MitFloww web application.
+
+### 5.1 Console Features
+
+- **Real-Time Dashboard**:
+  - Live scheduler health status (Healthy / Degraded / Paused / Stopped), uptime counter, and database/storage connectivity indicators.
+  - `DRY RUN (ENFORCED)` vs `DESTRUCTIVE MODE` environment safety banner.
+  - Overall execution metrics (Total Runs, Success Rate, Failed Runs, Cancelled Aborts, Records Scanned, Processed, Deleted, Skipped, Failed).
+  - Live In-Flight / Active Jobs table with cooperative cancel controls.
+- **Jobs & Controls**:
+  - Full catalog of all registered cleanup jobs with descriptions, schedules, statuses, and last run statistics.
+  - **Manual "Run Now"**: Triggers immediate job execution through the standard `JobRunner` with full distributed locking, retry handling, and audit recording.
+  - **Cooperative Cancellation**: Dispatches an `AbortSignal` to active jobs, releasing advisory locks and database connections cleanly.
+  - **Pause / Resume**: Suspends upcoming scheduled ticks without terminating in-flight jobs.
+- **Authoritative Execution History**:
+  - Paginated, filterable table powered by `mitfloww.scheduler_job_runs`.
+  - Filters by job name, status, date range, and search by execution ID.
+  - Detailed execution modal with complete metrics breakdown and sanitized error details.
+- **Persistent Failure Logs**:
+  - Dedicated table `mitfloww.scheduler_failure_logs` for recording operational exceptions with error codes, entity references, and sanitized stack traces.
+  - Built-in "Test Ingestion" trigger for verification testing.
+- **Administrative Audit Trail**:
+  - Dedicated table `mitfloww.scheduler_admin_audit_logs` recording every manual trigger, cancellation, pause/resume, and login.
+
+### 5.2 Accessing the Operations Console
+
+1. Start the scheduler service:
+   ```bash
+   cd scheduler
+   pnpm dev
+   ```
+2. Open your browser and navigate to:
+   [http://localhost:4002/](http://localhost:4002/) (or [http://localhost:4002/admin](http://localhost:4002/admin))
+3. Log in using the administrative key configured in `.env` (`SCHEDULER_ADMIN_KEY`, default: `mitfloww-admin-secret`).
+
+### 5.3 Operations REST API Endpoints
+
+| Method | Path | Auth Required | Description |
+|---|---|:---:|---|
+| `GET` | `/health` | No | Standard health probe for load balancers and orchestrators |
+| `GET` | `/ready` | No | Readiness probe (verifies PostgreSQL and R2 connectivity) |
+| `GET` | `/api/auth/check` | No | Checks current session status and environment mode |
+| `POST` | `/api/auth/login` | No | Authenticates admin key and sets secure session cookie |
+| `POST` | `/api/auth/logout` | Yes | Clears session cookie |
+| `GET` | `/api/scheduler/status` | Yes | Returns overall health, metrics, uptime, and active executions |
+| `GET` | `/api/scheduler/metrics` | Yes | Aggregated execution and failure metrics from database |
+| `POST` | `/api/scheduler/pause` | Yes | Pauses scheduler loop (audited) |
+| `POST` | `/api/scheduler/resume` | Yes | Resumes scheduler loop (audited) |
+| `GET` | `/api/jobs` | Yes | Lists all registered cleanup jobs and active state |
+| `GET` | `/api/jobs/:jobName` | Yes | Returns job details and 10 most recent execution runs |
+| `POST` | `/api/jobs/:jobName/run` | Yes | Manually triggers job execution via `JobRunner` (audited) |
+| `GET` | `/api/runs` | Yes | Paginated query on `scheduler_job_runs` (supports filtering) |
+| `GET` | `/api/runs/:executionId` | Yes | Full execution run details |
+| `POST` | `/api/runs/:executionId/cancel` | Yes | Cooperatively cancels active execution (audited) |
+| `GET` | `/api/failures` | Yes | Paginated query on `scheduler_failure_logs` |
+| `GET` | `/api/failures/:id` | Yes | Single failure log record |
+| `GET` | `/api/audit-logs` | Yes | Paginated administrative action audit trail |
+| `POST` | `/api/test/failure` | Yes | Generates a controlled test failure log for verification |
+
+### 5.4 Authentication Methods
+
+All protected `/api/*` endpoints accept authentication via:
+1. **HTTP Bearer Token**: `Authorization: Bearer <SCHEDULER_ADMIN_KEY>`
+2. **Custom Header**: `x-scheduler-key: <SCHEDULER_ADMIN_KEY>`
+3. **Session Cookie**: `scheduler_admin_token=<SCHEDULER_ADMIN_KEY>` (auto-set upon web UI login)

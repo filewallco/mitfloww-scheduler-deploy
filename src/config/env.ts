@@ -1,7 +1,7 @@
 import { z } from "zod";
 import dotenv from "dotenv";
 
-dotenv.config();
+dotenv.config({ override: true });
 
 const envSchema = z
   .object({
@@ -55,9 +55,15 @@ const envSchema = z
     SCHEDULER_BATCH_SIZE: z.coerce.number().int().min(1).max(1000).default(100),
     SCHEDULER_MAX_CONCURRENCY: z.coerce.number().int().min(1).max(10).default(3),
 
-    // Health Server
+    // Health Server & Admin Operations API
     HEALTH_SERVER_ENABLED: z.coerce.boolean().default(true),
     HEALTH_SERVER_PORT: z.coerce.number().int().min(1024).max(65535).default(4002),
+    SCHEDULER_ADMIN_KEY: z
+      .string()
+      .optional()
+      .transform((val) => (val && val.trim().length > 0 ? val.trim() : "mitfloww-admin-secret")),
+    FAILURE_LOG_RETENTION_DAYS: z.coerce.number().int().min(1).max(365).default(30),
+    ADMIN_AUDIT_RETENTION_DAYS: z.coerce.number().int().min(1).max(365).default(30),
 
     // System-level retention periods (authoritative for system policy)
     ACCOUNT_DELETION_RETENTION_DAYS: z.coerce.number().int().min(1).max(365).default(30),

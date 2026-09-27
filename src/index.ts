@@ -22,6 +22,8 @@ import { SoftDeletedAssetsService } from "./jobs/soft-deleted-assets/soft-delete
 import { SoftDeletedAssetsJob } from "./jobs/soft-deleted-assets/soft-deleted-assets.job.js";
 import { DeletedUsersService } from "./jobs/deleted-users/deleted-users.service.js";
 import { DeletedUsersJob } from "./jobs/deleted-users/deleted-users.job.js";
+import { LogRetentionService } from "./jobs/log-retention/log-retention.service.js";
+import { LogRetentionJob } from "./jobs/log-retention/log-retention.job.js";
 
 async function main() {
   logger.info("================================================================================");
@@ -87,6 +89,7 @@ async function main() {
   const orphanedFilesService = new OrphanedProcessedFilesService(dbClient, r2Cleaner);
   const softDeletedAssetsService = new SoftDeletedAssetsService(dbClient, r2Cleaner);
   const deletedUsersService = new DeletedUsersService(dbClient, r2Cleaner);
+  const logRetentionService = new LogRetentionService(dbClient);
 
   registry
     .register(new ExpiredProjectsJob(expiredProjectsService))
@@ -94,14 +97,15 @@ async function main() {
     .register(new StaleUploadsJob(staleUploadsService))
     .register(new OrphanedProcessedFilesJob(orphanedFilesService))
     .register(new SoftDeletedAssetsJob(softDeletedAssetsService))
-    .register(new DeletedUsersJob(deletedUsersService));
+    .register(new DeletedUsersJob(deletedUsersService))
+    .register(new LogRetentionJob(logRetentionService));
 
   logger.info(`[Startup] Registered ${registry.getAll().length} cleanup & maintenance jobs.`);
 
-  // 6. Start health check HTTP server
+  // 6. Start health check HTTP server & Admin Operations Console
   let healthServer: HealthServer | null = null;
   if (config.HEALTH_SERVER_ENABLED) {
-    healthServer = new HealthServer(config.HEALTH_SERVER_PORT, dbClient, runner);
+    healthServer = new HealthServer(config.HEALTH_SERVER_PORT, dbClient, runner, scheduler, registry);
     healthServer.start();
   }
 

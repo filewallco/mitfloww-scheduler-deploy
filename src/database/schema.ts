@@ -8,6 +8,7 @@ import {
   boolean,
   timestamp,
   smallint,
+  jsonb,
 } from "drizzle-orm/pg-core";
 
 export const fw = pgSchema("mitfloww");
@@ -194,5 +195,115 @@ export const schedulerJobRuns = fw.table("scheduler_job_runs", {
   recordsFailed: integer("records_failed").notNull().default(0),
   errorMessage: text("error_message"),
   details: text("details"),
+  createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+});
+
+// Persistent Scheduler Failure Logs Table
+export const schedulerFailureLogs = fw.table("scheduler_failure_logs", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  executionId: varchar("execution_id", { length: 255 }),
+  jobName: varchar("job_name", { length: 128 }).notNull(),
+  severity: varchar("severity", { length: 32 }).notNull().default("error"), // 'error', 'warn', 'fatal'
+  errorCode: varchar("error_code", { length: 64 }),
+  errorMessage: text("error_message").notNull(),
+  operation: varchar("operation", { length: 128 }),
+  entityType: varchar("entity_type", { length: 64 }),
+  entityId: varchar("entity_id", { length: 255 }),
+  storageBucket: varchar("storage_bucket", { length: 128 }),
+  storageKey: text("storage_key"),
+  retryable: boolean("retryable").notNull().default(false),
+  attempt: integer("attempt").notNull().default(1),
+  stackTrace: text("stack_trace"),
+  metadata: text("metadata"),
+  createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+});
+
+// Administrative Audit Logs Table
+export const schedulerAdminAuditLogs = fw.table("scheduler_admin_audit_logs", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  action: varchar("action", { length: 64 }).notNull(), // 'run_job', 'cancel_job', 'pause_scheduler', 'resume_scheduler'
+  jobName: varchar("job_name", { length: 128 }),
+  executionId: varchar("execution_id", { length: 255 }),
+  actor: varchar("actor", { length: 128 }).notNull().default("admin"),
+  result: varchar("result", { length: 32 }).notNull(), // 'success', 'failed', 'locked', 'cancelled', 'rejected'
+  metadata: text("metadata"),
+  createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+});
+
+// ==========================================
+// Operational Log Tables (Per-Service)
+// ==========================================
+
+export const apiLogs = fw.table("api_logs", {
+  id: bigint("id", { mode: "number" }).primaryKey(),
+  timestamp: timestamp("timestamp", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+  level: varchar("level", { length: 16 }).notNull(),
+  event: varchar("event", { length: 64 }).notNull(),
+  message: text("message").notNull(),
+  requestId: varchar("request_id", { length: 64 }),
+  correlationId: varchar("correlation_id", { length: 64 }),
+  userId: varchar("user_id", { length: 64 }),
+  method: varchar("method", { length: 16 }),
+  path: varchar("path", { length: 255 }),
+  statusCode: integer("status_code"),
+  durationMs: integer("duration_ms"),
+  component: varchar("component", { length: 64 }),
+  errorCode: varchar("error_code", { length: 64 }),
+  errorMessage: text("error_message"),
+  stackTrace: text("stack_trace"),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+});
+
+export const webLogs = fw.table("web_logs", {
+  id: bigint("id", { mode: "number" }).primaryKey(),
+  timestamp: timestamp("timestamp", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+  level: varchar("level", { length: 16 }).notNull(),
+  event: varchar("event", { length: 64 }).notNull(),
+  message: text("message").notNull(),
+  requestId: varchar("request_id", { length: 64 }),
+  userId: varchar("user_id", { length: 64 }),
+  path: varchar("path", { length: 255 }),
+  statusCode: integer("status_code"),
+  component: varchar("component", { length: 64 }),
+  errorMessage: text("error_message"),
+  stackTrace: text("stack_trace"),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+});
+
+export const workerLogs = fw.table("worker_logs", {
+  id: bigint("id", { mode: "number" }).primaryKey(),
+  timestamp: timestamp("timestamp", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+  level: varchar("level", { length: 16 }).notNull(),
+  event: varchar("event", { length: 64 }).notNull(),
+  message: text("message").notNull(),
+  jobId: varchar("job_id", { length: 64 }),
+  fileId: varchar("file_id", { length: 64 }),
+  stage: varchar("stage", { length: 32 }),
+  queueName: varchar("queue_name", { length: 32 }),
+  durationMs: integer("duration_ms"),
+  errorMessage: text("error_message"),
+  stackTrace: text("stack_trace"),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+});
+
+export const schedulerLogs = fw.table("scheduler_logs", {
+  id: bigint("id", { mode: "number" }).primaryKey(),
+  timestamp: timestamp("timestamp", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
+  level: varchar("level", { length: 16 }).notNull(),
+  event: varchar("event", { length: 64 }).notNull(),
+  message: text("message").notNull(),
+  jobName: varchar("job_name", { length: 64 }),
+  executionId: varchar("execution_id", { length: 64 }),
+  durationMs: integer("duration_ms"),
+  scanned: integer("scanned"),
+  processed: integer("processed"),
+  deleted: integer("deleted"),
+  failed: integer("failed"),
+  errorMessage: text("error_message"),
+  stackTrace: text("stack_trace"),
+  metadata: jsonb("metadata"),
   createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
 });

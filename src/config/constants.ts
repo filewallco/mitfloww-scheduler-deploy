@@ -23,5 +23,6 @@ export const JOB_INTERVALS = {
   STALE_UPLOADS: 30 * 60 * 1000,         // Every 30 minutes
   ORPHANED_FILES: 2 * 60 * 60 * 1000,    // Every 2 hours
   SOFT_DELETED_ASSETS: 60 * 60 * 1000,   // Every 1 hour
-  DELETED_USERS: 6 * 60 * 60 * 1000,     // Every 6 hours
+  DELETED_USERS: 6 * 60 * 60 * 1000,
+  LOG_RETENTION: 12 * 60 * 60 * 1000,     // Every 6 hours
 } as const;

@@ -16,5 +16,7 @@ describe("Env config validation", () => {
     const config = loadEnv();
     expect(config.SCHEDULER_BATCH_SIZE).toBeGreaterThanOrEqual(1);
     expect(config.SCHEDULER_TICK_INTERVAL_MS).toBeGreaterThanOrEqual(1000);
+    expect(config.SCHEDULER_ADMIN_KEY).toBeDefined();
+    expect(typeof config.SCHEDULER_ADMIN_KEY).toBe("string");
   });
 });

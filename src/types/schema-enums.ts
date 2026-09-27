@@ -137,5 +137,7 @@ export const SchedulerJobStatus = {
   Success: "success",
   Failed: "failed",
   Locked: "locked",
+  Cancelled: "cancelled",
+  Paused: "paused",
 } as const;
 export type SchedulerJobStatus = (typeof SchedulerJobStatus)[keyof typeof SchedulerJobStatus];

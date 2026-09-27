@@ -10,6 +10,7 @@ interface JobScheduleState {
 export class SchedulerService {
   private intervalTimer: NodeJS.Timeout | null = null;
   private isRunning = false;
+  private isPaused = false;
   private isShuttingDown = false;
   private scheduleMap = new Map<string, JobScheduleState>();
 
@@ -30,6 +31,7 @@ export class SchedulerService {
     }
 
     this.isRunning = true;
+    this.isPaused = false;
     this.isShuttingDown = false;
 
     const now = Date.now();
@@ -40,7 +42,9 @@ export class SchedulerService {
       });
     }
 
-    logger.info(`[Scheduler] Started master scheduler loop (tick interval: ${env.SCHEDULER_TICK_INTERVAL_MS}ms, registered jobs: ${this.registry.getAll().length})`);
+    logger.info(
+      `[Scheduler] Started master scheduler loop (tick interval: ${env.SCHEDULER_TICK_INTERVAL_MS}ms, registered jobs: ${this.registry.getAll().length})`
+    );
 
     this.intervalTimer = setInterval(() => {
       void this.tick();
@@ -50,8 +54,40 @@ export class SchedulerService {
     void this.tick();
   }
 
+  /**
+   * Pauses the scheduler loop from initiating new scheduled ticks.
+   * Already running executions continue to run safely until completion.
+   */
+  pause(actor = "admin"): { success: boolean; wasPaused: boolean } {
+    if (this.isPaused) {
+      return { success: true, wasPaused: true };
+    }
+
+    this.isPaused = true;
+    logger.warn(`[Scheduler] Scheduler paused by ${actor}. New scheduled runs are suspended.`);
+    return { success: true, wasPaused: false };
+  }
+
+  /**
+   * Resumes the scheduler loop.
+   */
+  resume(actor = "admin"): { success: boolean; wasPaused: boolean } {
+    if (!this.isPaused) {
+      return { success: true, wasPaused: false };
+    }
+
+    this.isPaused = false;
+    logger.info(`[Scheduler] Scheduler resumed by ${actor}. Scheduled runs will resume on next tick.`);
+    return { success: true, wasPaused: true };
+  }
+
   async tick(): Promise<void> {
     if (!this.isRunning || this.isShuttingDown) return;
+
+    if (this.isPaused) {
+      logger.debug("[Scheduler] Scheduler is paused. Skipping scheduled tick.");
+      return;
+    }
 
     const now = Date.now();
     const enabledJobs = this.registry.getEnabled();
@@ -65,11 +101,22 @@ export class SchedulerService {
         state.nextRunTime = now + job.intervalMs;
 
         // Fire-and-forget job execution with runner-level error isolation & concurrency control
-        void this.runner.runJob(job).catch((err) => {
+        void this.runner.runJob(job, "scheduler").catch((err) => {
           logger.error(`[Scheduler] Uncaught error running job ${job.name}`, { error: err });
         });
       }
     }
+  }
+
+  getStatus() {
+    return {
+      isRunning: this.isRunning,
+      isPaused: this.isPaused,
+      isShuttingDown: this.isShuttingDown,
+      tickIntervalMs: env.SCHEDULER_TICK_INTERVAL_MS,
+      registeredJobsCount: this.registry.getAll().length,
+      enabledJobsCount: this.registry.getEnabled().length,
+    };
   }
 
   async stop(): Promise<void> {
@@ -78,6 +125,7 @@ export class SchedulerService {
     logger.info("[Scheduler] Gracefully stopping scheduler service...");
     this.isShuttingDown = true;
     this.isRunning = false;
+    this.isPaused = false;
 
     if (this.intervalTimer) {
       clearInterval(this.intervalTimer);
