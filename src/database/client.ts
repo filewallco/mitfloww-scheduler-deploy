@@ -121,6 +121,7 @@ export class DatabaseClient {
       min: env.DB_POOL_MIN,
       max: env.DB_POOL_MAX,
       idleTimeoutMillis: env.DB_IDLE_TIMEOUT_MS,
+      connectionTimeoutMillis: 5000,
     });
 
     this.pool.on("error", (err) => {

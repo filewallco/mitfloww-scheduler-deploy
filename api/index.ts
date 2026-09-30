@@ -1,10 +1,10 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { URL } from "node:url";
-import { getAppContext } from "../src/core/bootstrap.js";
 import { renderAdminHtml } from "../src/ui/admin-ui.html.js";
 import { MITFLOWW_LOGO_SVG } from "../src/ui/logo.js";
 import { verifyCronAuth } from "../src/api/auth.js";
 import { logger } from "../src/utils/logger.js";
+import { getAppContext } from "../src/core/bootstrap.js";
 
 /**
  * Vercel Serverless Function entry point.
@@ -14,10 +14,24 @@ import { logger } from "../src/utils/logger.js";
 export default async function handler(req: IncomingMessage, res: ServerResponse): Promise<void> {
   try {
     const host = req.headers.host || "localhost";
-    const parsedUrl = new URL(req.url || "/", `https://${host}`);
-    const pathname = parsedUrl.pathname;
 
-    // 1. Serve Admin Operations Single-Page Application
+    // Resolve true requested path across Vercel rewrites and standard HTTP
+    const rawPath =
+      (req.headers["x-matched-path"] as string) ||
+      (req.headers["x-forwarded-uri"] as string) ||
+      (req.headers["x-invoke-path"] as string) ||
+      req.url ||
+      "/";
+
+    const parsedUrl = new URL(rawPath, `https://${host}`);
+    let pathname = parsedUrl.pathname;
+
+    // Normalize direct invocation of the serverless function name to root UI
+    if (pathname === "/api/index" || pathname === "/api" || pathname === "" || pathname === "/index") {
+      pathname = "/";
+    }
+
+    // 1. Serve Admin Operations UI IMMEDIATELY (Zero cold-start DB delay)
     if (pathname === "/" || pathname === "/admin" || pathname === "/admin/") {
       res.writeHead(200, {
         "Content-Type": "text/html; charset=utf-8",
@@ -59,7 +73,6 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
 
       logger.info(`[Cron] Authorized maintenance trigger initiated by ${cronAuth.actor}`);
 
-      // Check if a specific job was requested via ?job=job-name, else run all due jobs
       const specificJobName = parsedUrl.searchParams.get("job");
       const enabledJobs = ctx.registry.getEnabled();
       const jobsToRun = specificJobName
@@ -116,6 +129,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
         JSON.stringify({
           error: "Internal Server Error",
           message: err?.message || "An unexpected error occurred",
+          tip: "Check database and Cloudflare R2 environment variables in Vercel settings.",
         })
       );
     }

@@ -42,7 +42,13 @@ export async function testR2Connection(client: S3Client = r2Client, bucketName: 
   }
 
   try {
-    await client.send(new HeadBucketCommand({ Bucket: bucketName }));
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error("R2 connection probe timed out after 4000ms")), 4000)
+    );
+    await Promise.race([
+      client.send(new HeadBucketCommand({ Bucket: bucketName })),
+      timeoutPromise,
+    ]);
     return true;
   } catch (err) {
     logger.error(`[R2Client] HeadBucket failed for bucket "${bucketName}"`, { error: err });
