@@ -8,13 +8,13 @@ FROM node:22-alpine AS builder
 WORKDIR /app
 
 # Install pnpm
-RUN corepack enable && corepack prepare pnpm@latest --activate
+RUN corepack enable && corepack prepare pnpm@12.8.1 --activate
 
 # Copy package descriptors
-COPY package.json pnpm-lock.yaml* ./
+COPY package.json pnpm-lock.yaml* pnpm-workspace.yaml ./
 
-# Install dependencies (including devDependencies for TypeScript compilation)
-RUN pnpm install --frozen-lockfile || pnpm install
+# Install dependencies
+RUN pnpm install --frozen-lockfile
 
 # Copy source code and configs
 COPY tsconfig.json ./
@@ -34,11 +34,11 @@ ENV NODE_ENV=production
 RUN apk add --no-cache tini wget
 
 # Install pnpm
-RUN corepack enable && corepack prepare pnpm@latest --activate
+RUN corepack enable && corepack prepare pnpm@12.8.1 --activate
 
 # Copy package descriptors and install only production dependencies
-COPY package.json pnpm-lock.yaml* ./
-RUN pnpm install --prod --frozen-lockfile || pnpm install --prod
+COPY package.json pnpm-lock.yaml* pnpm-workspace.yaml ./
+RUN pnpm install --prod --frozen-lockfile
 
 # Copy compiled JavaScript bundle from builder stage
 COPY --from=builder /app/dist ./dist
