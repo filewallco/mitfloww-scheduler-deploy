@@ -24,6 +24,7 @@
   "devDependencies": {
     "@types/node": "^22.13.9",
     "@types/pg": "^8.11.11",
+    "@vercel/node": "^16.0.2",
     "tsup": "^8.5.1",
     "tsx": "^4.19.3",
     "typescript": "^5.8.2",

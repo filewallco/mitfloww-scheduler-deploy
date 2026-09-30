@@ -99,6 +99,13 @@ const envSchema = z
           path: ["R2_SECRET_ACCESS_KEY"],
         });
       }
+      if (data.SCHEDULER_ADMIN_KEY === "mitfloww-admin-secret" || data.SCHEDULER_ADMIN_KEY.length < 6) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "SCHEDULER_ADMIN_KEY must be set to a strong custom secret (at least 6 characters) in production",
+          path: ["SCHEDULER_ADMIN_KEY"],
+        });
+      }
     }
   });
 

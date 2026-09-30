@@ -33,9 +33,24 @@ export function sendJson(res: http.ServerResponse, statusCode: number, data: unk
 }
 
 /**
- * Parses JSON request body up to 1MB.
+ * Parses JSON request body up to 1MB. Supports both raw HTTP streams and pre-parsed serverless bodies.
  */
 export async function parseJsonBody<T = Record<string, unknown>>(req: http.IncomingMessage): Promise<T> {
+  const anyReq = req as any;
+  if (anyReq.body !== undefined && anyReq.body !== null) {
+    if (typeof anyReq.body === "object") {
+      return anyReq.body as T;
+    }
+    if (typeof anyReq.body === "string") {
+      if (!anyReq.body.trim()) return {} as T;
+      try {
+        return JSON.parse(anyReq.body) as T;
+      } catch {
+        throw new Error("Malformed JSON payload");
+      }
+    }
+  }
+
   return new Promise((resolve, reject) => {
     let body = "";
     req.on("data", (chunk) => {

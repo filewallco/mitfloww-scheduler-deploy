@@ -144,3 +144,23 @@ export function authenticateLogin(
 
   return { success: false, error: "Invalid administrative access key." };
 }
+
+/**
+ * Verifies that a Cron invocation is authenticated via either CRON_SECRET or SCHEDULER_ADMIN_KEY.
+ * Prevents any unauthenticated public triggers from bypassing security.
+ */
+export function verifyCronAuth(req: http.IncomingMessage): { authenticated: boolean; actor: string } {
+  const cronSecret = process.env.CRON_SECRET?.trim();
+  const authHeader = req.headers["authorization"];
+
+  if (cronSecret && authHeader && authHeader.startsWith("Bearer ")) {
+    const token = authHeader.substring(7).trim();
+    if (safeCompare(token, cronSecret)) {
+      return { authenticated: true, actor: "vercel-cron" };
+    }
+  }
+
+  // Fallback to standard admin authentication (bearer, x-scheduler-key, or session cookie)
+  return verifyAuth(req);
+}
+
