@@ -25,6 +25,13 @@ export class PostgresAdvisoryLockProvider implements DistributedLockProvider {
     try {
       client = await this.pool.connect();
 
+      // Prevent unhandled error event from crashing process if Neon/Postgres terminates idle connection
+      if (typeof (client as any).on === "function") {
+        (client as any).on("error", (clientErr: any) => {
+          logger.warn("[PostgresLock] Lock client socket closed by server", { lockKey, error: clientErr?.message || String(clientErr) });
+        });
+      }
+
       // Set a short statement timeout on lock check so connection won't hang if pool is busy
       await client.query("SET statement_timeout = 5000");
 

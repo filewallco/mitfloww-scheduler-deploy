@@ -144,6 +144,12 @@ async function main() {
   process.on("SIGINT", () => void gracefulShutdown("SIGINT"));
 
   process.on("uncaughtException", (err) => {
+    // If it's a known transient DB disconnect from pg, do not crash the scheduler daemon
+    if (err && (err.message?.includes("Connection terminated unexpectedly") || (err as any).code === "ECONNRESET" || (err as any).code === "57P01")) {
+      logger.warn("[Database] Transient socket disconnection detected in database pool. Reconnection will occur automatically.", { error: err.message });
+      return;
+    }
+
     logger.error("[Fatal] Uncaught exception in scheduler process", { error: err });
     void gracefulShutdown("uncaughtException");
   });
