@@ -1,0 +1,29 @@
+name: mitfloww-scheduler
+
+services:
+  scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: mitfloww-scheduler:latest
+    container_name: mitfloww-scheduler
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=production
+    ports:
+      - "${HEALTH_SERVER_PORT:-4002}:4002"
+    volumes:
+      - scheduler-logs:/app/logs
+    stop_signal: SIGTERM
+    stop_grace_period: 30s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "3"
+
+volumes:
+  scheduler-logs:
+    name: mitfloww-scheduler-logs
