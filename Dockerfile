@@ -42,6 +42,7 @@ RUN pnpm install --prod --frozen-lockfile
 
 # Copy compiled JavaScript bundle from builder stage
 COPY --from=builder /app/dist ./dist
+COPY public/ ./public/
 
 # Create logs directory and ensure non-root permissions
 RUN mkdir -p /app/logs && chown -R node:node /app
