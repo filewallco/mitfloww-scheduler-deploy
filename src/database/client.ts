@@ -721,29 +721,28 @@ export class DatabaseClient {
       let idx = 1;
 
       if (params.level && params.level !== "all") {
-        conditions.push(`level = ${idx++}`);
+        conditions.push(`level = $${idx++}`);
         values.push(params.level.toLowerCase());
       }
 
       if (params.from) {
-        conditions.push(`timestamp >= ${idx++}`);
+        conditions.push(`timestamp >= $${idx++}`);
         values.push(params.from);
       }
 
       if (params.to) {
-        conditions.push(`timestamp <= ${idx++}`);
+        conditions.push(`timestamp <= $${idx++}`);
         values.push(params.to);
       }
 
       if (params.requestId) {
-        conditions.push(`request_id = ${idx++}`);
+        conditions.push(`request_id = $${idx++}`);
         values.push(params.requestId);
       }
 
       if (params.search) {
-        conditions.push(`(message ILIKE ${idx} OR event ILIKE ${idx} OR coalesce(request_id, '') ILIKE ${idx} OR coalesce(user_id, '') ILIKE ${idx} OR coalesce(error_message, '') ILIKE ${idx})`);
+        const sIdx = idx++; conditions.push(`(message ILIKE $${sIdx} OR event ILIKE $${sIdx} OR coalesce(request_id, '') ILIKE $${sIdx} OR coalesce(user_id, '') ILIKE $${sIdx} OR coalesce(error_message, '') ILIKE $${sIdx})`);
         values.push(`%${params.search}%`);
-        idx++;
       }
 
       const whereClause = conditions.length > 0 ? "WHERE " + conditions.join(" AND ") : "";
@@ -779,13 +778,15 @@ export class DatabaseClient {
       }
 
       const unionSql = selectQueries.join(" UNION ALL ");
+      const limitParamIdx = idx++;
+      const offsetParamIdx = idx++;
       const finalSql = `
         WITH combined AS (
           ${unionSql}
         )
         SELECT * FROM combined
         ORDER BY timestamp DESC
-        LIMIT ${idx++} OFFSET ${idx++};
+        LIMIT $${limitParamIdx} OFFSET $${offsetParamIdx};
       `;
 
       const countSql = `

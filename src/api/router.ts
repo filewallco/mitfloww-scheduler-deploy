@@ -563,6 +563,56 @@ export class ApiRouter {
       }
     }
 
+        // 7. Operational Logs Stats: GET /api/logs/stats
+    if (pathname === "/api/logs/stats" && method === "GET") {
+      const stats = await this.ctx.dbClient.getLogStats();
+      sendJson(res, 200, { stats });
+      return true;
+    }
+
+    // 8. Operational Logs Query: GET /api/logs
+    if (pathname === "/api/logs" && method === "GET") {
+      const limit = Number(url.searchParams.get("limit")) || 50;
+      const offset = Number(url.searchParams.get("offset")) || 0;
+      const service = url.searchParams.get("service") || "all";
+      const level = url.searchParams.get("level") || undefined;
+      const search = url.searchParams.get("search") || undefined;
+      const requestId = url.searchParams.get("requestId") || undefined;
+      const fromStr = url.searchParams.get("from");
+      const toStr = url.searchParams.get("to");
+
+      const from = fromStr ? new Date(fromStr) : undefined;
+      const to = toStr ? new Date(toStr) : undefined;
+
+      const result = await this.ctx.dbClient.queryLogs({
+        limit,
+        offset,
+        service: service as any,
+        level,
+        search,
+        requestId,
+        from: from && !isNaN(from.getTime()) ? from : undefined,
+        to: to && !isNaN(to.getTime()) ? to : undefined,
+      });
+
+      sendJson(res, 200, result);
+      return true;
+    }
+
+    // 9. Single Log Entry Detail: GET /api/logs/:service/:id
+    const singleLogMatch = pathname.match(/^\/api\/logs\/([a-zA-Z0-9_-]+)\/([0-9]+)$/);
+    if (singleLogMatch && method === "GET") {
+      const service = singleLogMatch[1];
+      const id = Number(singleLogMatch[2]);
+      const log = await this.ctx.dbClient.getLogById(service, id);
+      if (!log) {
+        sendJson(res, 404, { error: `Log entry with ID ${id} in service "${service}" not found.` });
+        return true;
+      }
+      sendJson(res, 200, { log });
+      return true;
+    }
+
     sendJson(res, 404, { error: "API route not found." });
     return true;
   }
