@@ -24,6 +24,8 @@ import { DeletedUsersService } from "./jobs/deleted-users/deleted-users.service.
 import { DeletedUsersJob } from "./jobs/deleted-users/deleted-users.job.js";
 import { LogRetentionService } from "./jobs/log-retention/log-retention.service.js";
 import { LogRetentionJob } from "./jobs/log-retention/log-retention.job.js";
+import { PlanExpiryService } from "./jobs/plan-expiry/plan-expiry.service.js";
+import { PlanExpiryJob } from "./jobs/plan-expiry/plan-expiry.job.js";
 
 async function main() {
   logger.info("================================================================================");
@@ -90,6 +92,7 @@ async function main() {
   const softDeletedAssetsService = new SoftDeletedAssetsService(dbClient, r2Cleaner);
   const deletedUsersService = new DeletedUsersService(dbClient, r2Cleaner);
   const logRetentionService = new LogRetentionService(dbClient);
+  const planExpiryService = new PlanExpiryService(dbClient);
 
   registry
     .register(new ExpiredProjectsJob(expiredProjectsService))
@@ -98,7 +101,8 @@ async function main() {
     .register(new OrphanedProcessedFilesJob(orphanedFilesService))
     .register(new SoftDeletedAssetsJob(softDeletedAssetsService))
     .register(new DeletedUsersJob(deletedUsersService))
-    .register(new LogRetentionJob(logRetentionService));
+    .register(new LogRetentionJob(logRetentionService))
+    .register(new PlanExpiryJob(planExpiryService));
 
   logger.info(`[Startup] Registered ${registry.getAll().length} cleanup & maintenance jobs.`);
 

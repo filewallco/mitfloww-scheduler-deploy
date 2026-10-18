@@ -25,4 +25,5 @@ export const JOB_INTERVALS = {
   SOFT_DELETED_ASSETS: 60 * 60 * 1000,   // Every 1 hour
   DELETED_USERS: 6 * 60 * 60 * 1000,
   LOG_RETENTION: 12 * 60 * 60 * 1000,     // Every 6 hours
+  PLAN_EXPIRY: 60 * 60 * 1000,           // Every 1 hour
 } as const;

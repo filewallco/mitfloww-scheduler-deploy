@@ -128,12 +128,35 @@ export const assetPurchases = fw.table("asset_purchases", {
 export const users = fw.table("users", {
   id: varchar("id", { length: 255 }).primaryKey(),
   email: varchar("email", { length: 255 }),
+  displayName: varchar("display_name", { length: 255 }),
+  firstName: varchar("first_name", { length: 100 }),
   avatarStorageKey: varchar("avatar_storage_key", { length: 1024 }),
   status: smallint("status").notNull(),
   planKey: varchar("plan_key", { length: 50 }).notNull().default("free"),
   deletedAt: timestamp("deleted_at", { withTimezone: true, mode: "date" }),
   createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date" }).notNull(),
+});
+
+// Notifications Table
+export const notifications = fw.table("notifications", {
+  id: uuid("id").defaultRandom().primaryKey(),
+  title: varchar("title", { length: 160 }),
+  titleKey: varchar("title_key", { length: 160 }),
+  description: text("description"),
+  descriptionKey: varchar("description_key", { length: 160 }),
+  category: smallint("category").notNull().default(0),
+  projectId: uuid("project_id"),
+  fileId: uuid("file_id"),
+  eventKey: varchar("event_key", { length: 255 }).unique(),
+  metadata: jsonb("metadata").notNull().default({}),
+  readAt: timestamp("read_at", { mode: "date", withTimezone: true }),
+  createdAt: timestamp("created_at", { mode: "date", withTimezone: true })
+    .notNull()
+    .defaultNow(),
+  updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true })
+    .notNull()
+    .defaultNow(),
 });
 
 // Companies Table
