@@ -1,12 +1,24 @@
 import { logger } from "../utils/logger.js";
+import {
+  getEmailBrandHeaderHtml,
+  getEmailBrandFooterHtml,
+  getEmailLogoAttachment,
+  getEmailIconAttachment,
+  type EmailAttachment,
+} from "./email-logo.js";
 
 interface SendEmailOptions {
   to: string;
   subject: string;
   html: string;
   text: string;
+  attachments?: EmailAttachment[];
 }
 
+/**
+ * Wraps content in a full-width, responsive, dark-mode safe email document
+ * using the official MitFloww branded header strip and icon footer.
+ */
 function wrapEmailHtml(contentHtml: string): string {
   return `
 <!DOCTYPE html>
@@ -16,43 +28,42 @@ function wrapEmailHtml(contentHtml: string): string {
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="color-scheme" content="light" />
+    <meta name="supported-color-schemes" content="light" />
     <style>
-      body {
-        margin: 0;
-        padding: 0;
-        background-color: #f8fafc;
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-        color: #1e293b;
+      :root {
+        color-scheme: light;
+        supported-color-schemes: light;
       }
-      .container {
-        max-width: 580px;
-        margin: 32px auto;
-        background-color: #ffffff;
-        border-radius: 16px;
-        border: 1px solid #e2e8f0;
-        overflow: hidden;
+      body, table, td, a { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
+      table, td { mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
+      img { -ms-interpolation-mode: bicubic; border: 0; height: auto; line-height: 100%; outline: none; text-decoration: none; }
+      body { height: 100% !important; margin: 0 !important; padding: 0 !important; width: 100% !important; min-width: 100%; background-color: #ffffff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased; }
+
+      /* Force logo strip to always be 100% white, never inverting across any theme or dark mode */
+      .logo-strip, .logo-strip td {
+        background-color: #ffffff !important;
+        background: #ffffff !important;
+        background-image: linear-gradient(#ffffff, #ffffff) !important;
       }
-      .header {
-        padding: 24px 32px;
-        border-bottom: 1px solid #f1f5f9;
-        text-align: left;
+      @media (prefers-color-scheme: dark) {
+        .logo-strip, .logo-strip td {
+          background-color: #ffffff !important;
+          background: #ffffff !important;
+          background-image: linear-gradient(#ffffff, #ffffff) !important;
+        }
       }
-      .logo {
-        font-size: 20px;
-        font-weight: 700;
-        color: #0f172a;
-        letter-spacing: -0.5px;
+      /* Gmail app dark mode override */
+      u + .body .logo-strip, u + .body .logo-strip td {
+        background-color: #ffffff !important;
+        background: #ffffff !important;
+        background-image: linear-gradient(#ffffff, #ffffff) !important;
       }
-      .body {
-        padding: 32px;
-      }
-      .footer {
-        padding: 20px 32px;
-        background-color: #f8fafc;
-        border-top: 1px solid #f1f5f9;
-        text-align: center;
-        font-size: 12px;
-        color: #64748b;
+      /* Outlook dark mode override */
+      [data-ogsc] .logo-strip, [data-ogsc] .logo-strip td,
+      [data-ogsb] .logo-strip, [data-ogsb] .logo-strip td {
+        background-color: #ffffff !important;
+        background: #ffffff !important;
+        background-image: linear-gradient(#ffffff, #ffffff) !important;
       }
       .btn {
         display: inline-block;
@@ -67,21 +78,34 @@ function wrapEmailHtml(contentHtml: string): string {
       }
     </style>
   </head>
-  <body>
-    <div class="container">
-      <div class="header">
-        <span class="logo">MitFloww</span>
-      </div>
-      <div class="body">
-        ${contentHtml}
-      </div>
-      <div class="footer">
-        &copy; ${new Date().getFullYear()} MitFloww. All rights reserved.
-      </div>
-    </div>
+  <body class="body" style="margin: 0; padding: 0; width: 100% !important; min-width: 100%; background-color: #ffffff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased;">
+    <!-- Main Content Container with width-fitting Brand Header Strip -->
+    <table width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#ffffff" style="width: 100%; min-width: 100%; background-color: #ffffff; border-collapse: collapse;">
+      <tr>
+        <td align="center" style="padding: 24px 16px 0 16px;">
+          <table width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width: 600px; width: 100%; margin: 0 auto; border-collapse: collapse;">
+            <!-- Width-fitting White Brand Header Strip -->
+            <tr>
+              <td style="padding: 0 0 24px 0;">
+                ${getEmailBrandHeaderHtml()}
+              </td>
+            </tr>
+            <!-- Email Body Content -->
+            <tr>
+              <td style="color: #0f172a; font-size: 15px; line-height: 1.6; text-align: left;">
+                ${contentHtml}
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+
+    <!-- Footer with MitFloww icon logo, copyright and year -->
+    ${getEmailBrandFooterHtml()}
   </body>
 </html>
-  `;
+  `.trim();
 }
 
 export class EmailService {
@@ -110,6 +134,36 @@ export class EmailService {
     }
 
     try {
+      const attachments = [...(options.attachments || [])];
+
+      // Automatically attach dark-mode safe MitFloww logo if referenced as CID
+      if (
+        options.html.includes("cid:mitfloww-logo") &&
+        !attachments.some(
+          (a) => a.contentId === "mitfloww-logo" || a.content_id === "mitfloww-logo",
+        )
+      ) {
+        attachments.push(getEmailLogoAttachment());
+      }
+
+      // Automatically attach MitFloww icon mark if referenced as CID
+      if (
+        options.html.includes("cid:mitfloww-icon") &&
+        !attachments.some(
+          (a) => a.contentId === "mitfloww-icon" || a.content_id === "mitfloww-icon",
+        )
+      ) {
+        attachments.push(getEmailIconAttachment());
+      }
+
+      const formattedAttachments = attachments.map((att) => ({
+        filename: att.filename,
+        content: Buffer.isBuffer(att.content) ? att.content.toString("base64") : att.content,
+        content_id: att.content_id || att.contentId,
+        contentId: att.contentId || att.content_id,
+        contentType: att.contentType,
+      }));
+
       const response = await fetch("https://api.resend.com/emails", {
         method: "POST",
         headers: {
@@ -122,6 +176,7 @@ export class EmailService {
           subject: options.subject,
           html: options.html,
           text: options.text,
+          ...(formattedAttachments.length > 0 ? { attachments: formattedAttachments } : {}),
         }),
       });
 
