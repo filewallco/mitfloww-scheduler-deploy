@@ -330,3 +330,24 @@ export const schedulerLogs = fw.table("scheduler_logs", {
   metadata: jsonb("metadata"),
   createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
 });
+
+export const userBankDetails = fw.table("user_bank_details", {
+  id: uuid("id").primaryKey(),
+  userId: varchar("user_id", { length: 255 }).notNull().references(() => users.id),
+  paymentType: varchar("payment_type", { length: 20 }).notNull().default("bank"),
+  accountHolderName: varchar("account_holder_name", { length: 150 }),
+  bankName: varchar("bank_name", { length: 150 }),
+  accountNumberCiphertext: text("account_number_ciphertext"),
+  accountNumberLast4: varchar("account_number_last4", { length: 8 }),
+  routingCodeCiphertext: text("routing_code_ciphertext"),
+  routingCodeLast4: varchar("routing_code_last4", { length: 8 }),
+  accountType: varchar("account_type", { length: 50 }).notNull().default("savings"),
+  country: varchar("country", { length: 100 }),
+  currency: varchar("currency", { length: 10 }),
+  upiId: varchar("upi_id", { length: 100 }),
+  bankBranchAddress: text("bank_branch_address"),
+  verificationStatus: varchar("verification_status", { length: 20 }).notNull().default("pending"),
+  verifiedAt: timestamp("verified_at", { withTimezone: true, mode: "date" }),
+  createdAt: timestamp("created_at", { withTimezone: true, mode: "date" }).notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date" }).notNull(),
+});

@@ -24,6 +24,7 @@ import {
   projects,
   sessions,
   storageAccounts,
+  userBankDetails,
   users,
 } from "../../database/schema.js";
 import { UserStatusDb } from "../../types/schema-enums.js";
@@ -268,6 +269,7 @@ export class DeletedUsersService {
               await db.delete(authIdentities).where(eq(authIdentities.userId, user.id));
               await db.delete(otpChallenges).where(eq(otpChallenges.userId, user.id));
               await db.delete(companies).where(eq(companies.userId, user.id));
+              await db.delete(userBankDetails).where(eq(userBankDetails.userId, user.id));
 
               // Final permanent delete of user record
               await db.delete(users).where(eq(users.id, user.id));
